@@ -211,7 +211,7 @@ def create_tender_from_nlp(
         raw_description="",  # Data is already structured
         deadline=deadline,
         is_partial=False,
-        nlp_metadata=nlp_payload.model_dump(),
+        nlp_metadata=nlp_payload.model_dump(mode="json"),
         status=TenderStatus.DETECTED
     )
     db.add(db_tender)

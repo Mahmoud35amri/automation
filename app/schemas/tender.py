@@ -5,7 +5,7 @@ from app.models.tender import TenderStatus
 
 class RoleRequirement(BaseModel):
     title: str
-    count: int
+    count: Optional[int] = None  # the NLP pipeline emits null when the RFP gives no headcount
     min_experience_years: Optional[int] = None
     required_certifications: List[str] = []
 
