@@ -18,6 +18,7 @@ Original file is located at
 #   Edge cases ............. missing_fields, quality_flags, expired (Tunis time), Arabic titles,
 #                            truncated titles, placeholder references, blocked source = skipped
 #   n8n .................... --webhook URL posts the new leads (JSON) to an n8n Webhook node
+#   Backend ................ --backend URL posts every kept tender to POST /tenders/ of the FastAPI backend
 #   Dashboard .............. lead_score (0-100), priority (hot/warm/cold), urgent, days_left
 #   Proposal generation .... offers_report.pdf keeps the sample_rfp_fr.pdf layout
 #   Bonus multi-source ..... two portals crawled and merged
@@ -1297,6 +1298,25 @@ def push_webhook(url, records):
         print(f"[webhook] failed (outputs are already saved): {e}")
 
 
+def push_backend(base_url, records):
+    """POST every kept tender to the backend (POST /tenders/, deduplicated there by source_url)."""
+    created = existing = failed = 0
+    for r in records:
+        body = {"title": (r.get("objet") or r.get("tender_id") or "")[:255],
+                "organization_name": (r.get("acheteur") or r.get("buyer_hint") or "")[:255] or None,
+                "source_url": r.get("url"), "raw_description": r.get("rag_query") or "",
+                "deadline": r.get("deadline_at"), "is_partial": r.get("detail_level") != "full"}
+        try:
+            resp = requests.post(f"{base_url.rstrip('/')}/tenders/", json=body, timeout=30)
+            resp.raise_for_status()
+            created += resp.status_code == 201
+            existing += resp.status_code == 200
+        except requests.RequestException as e:
+            failed += 1
+            print(f"  [backend] {r.get('tender_id')} not sent: {e}")
+    print(f"[backend] {created} created, {existing} already known, {failed} failed")
+
+
 def _prev_urls(path):
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -1367,6 +1387,8 @@ def run(a):
               .head(10).to_string(index=False, max_colwidth=45))
     if a.webhook:
         push_webhook(a.webhook, _records(df))
+    if a.backend:
+        push_backend(a.backend, _records(df))
     return df
 
 
@@ -1386,6 +1408,7 @@ def build_parser():
     ap.add_argument("--keep-expired", action="store_true")
     ap.add_argument("--demo", action="store_true", help="labelled simulated tenders (no network)")
     ap.add_argument("--webhook", default="", help="n8n Webhook URL to receive the new leads")
+    ap.add_argument("--backend", default="", help="backend API base URL, e.g. http://localhost:8000/api/v1")
     ap.add_argument("--out-dir", default=_HERE)
     ap.add_argument("--prefix", default="offers")
     ap.add_argument("--browser-ua", action="store_true")
