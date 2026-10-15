@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "tender not found" }, { status: 404 });
   }
 
-  await backend(`/tenders/${tender_id}`, "PATCH", { status: "RESEARCHING" });
+  await backend(`/tenders/${tender.id}`, "PATCH", { status: "RESEARCHING" });
 
   let generalCtx: string, marketCtx: string;
   try {
@@ -115,7 +115,7 @@ Synthétise le profil prospect structuré.`,
   }
 
   // Le backend passe le tender en RESEARCHED à la réception.
-  const research = await backend(`/tenders/${tender_id}/research`, "POST", {
+  const research = await backend(`/tenders/${tender.id}/research`, "POST", {
     sector: profile.sector,
     estimated_revenue: `${profile.estimated_revenue} TND`,
     key_partners: profile.key_partners,

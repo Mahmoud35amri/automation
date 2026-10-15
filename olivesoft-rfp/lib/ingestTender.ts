@@ -6,13 +6,13 @@ interface TenderRequirement {
 interface TenderRole {
   count: number | null;
   title: string;
-  min_experience_years?: number;
+  min_experience_years?: number | null;
 }
 
 interface TenderPayload {
   title?: string;
   project_type?: string[];
-  client_name?: string;
+  client_name?: string | null;
   requirements?: TenderRequirement[];
   required_roles?: TenderRole[];
   required_technologies?: string[];

@@ -158,7 +158,7 @@ Réponds avec :
   };
 
   // Le backend crée la version suivante (v1, v2...) et passe le tender en PROPOSAL_READY.
-  const proposal = await backend<{ id: number }>(`/tenders/${tender_id}/generate-proposal`, "POST", {
+  const proposal = await backend<{ id: number }>(`/tenders/${tender.id}/generate-proposal`, "POST", {
     content_json: structuredProposal,
   });
 
