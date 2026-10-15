@@ -5,6 +5,7 @@ Ce module fait partie du système **Automated RFP Intelligence & Commercial Prop
 ## Sommaire
 
 - [Vue d'ensemble](#vue-densemble)
+- [Interface](#interface)
 - [Architecture](#architecture)
 - [Stack technique](#stack-technique)
 - [Installation](#installation)
@@ -26,6 +27,26 @@ Ce module fait partie du système **Automated RFP Intelligence & Commercial Prop
 4. **Exporte cette proposition en `.pptx`** avec une identité visuelle propre
 
 Un seul appel suffit pour enchaîner les étapes 1 à 3 : `POST /api/tenders/{id}/process`.
+
+## Interface
+
+`npm run dev` puis http://localhost:3000 — **OliveSoft · RFP Intelligence**, le tableau de bord de l'équipe commerciale. Tout est lu et écrit via l'API du backend (`BACKEND_URL`).
+
+| Page | Rôle |
+|---|---|
+| `/` Pipeline | La machine à états du backend (détecté → recherche → qualifié → rédaction → prête, + échecs) : compteurs cliquables, recherche, échéances en compte à rebours (J-n) |
+| `/tenders/{id}` Dossier | Analyse NLP (exigences obligatoires/souhaitées, équipe, technologies), profil prospect, correspondances RAG, propositions versionnées. « Prochaine étape » déclenche `trigger-research` / `trigger-proposal` ; la page se rafraîchit pendant le travail de l'agent |
+| Relecture | Modifier le texte d'une proposition l'enregistre (`PATCH /proposals/{id}`) **et régénère le .pptx** téléchargeable |
+| `/tenders/new` | Import d'une extraction NLP (fichier ou JSON collé) ou saisie manuelle |
+| `/assets` | Base de connaissances : projets et profils enregistrés par le RAG |
+
+Identité visuelle reprise des propositions .pptx (encre `#1C1F27`, ambre `#D9A548`, olive pour « prête ») ; typographies Newsreader, IBM Plex Sans et IBM Plex Mono.
+
+```
+app/                 pages (Server Components) + actions.ts (Server Actions vers le backend)
+components/          interface : pipeline, dossier (components/tender/), formulaires, proposition
+lib/format.ts        dates (heure de Tunis), statuts, libellés
+```
 
 ## Architecture
 
@@ -134,6 +155,10 @@ app/
     └── rag/
         └── search/
             └── route.ts            # recherche vectorielle exposée en API
+
+app/page.tsx, app/tenders/, app/assets/  # interface (voir « Interface »)
+app/actions.ts                      # Server Actions : déclencheurs, création de tenders, relecture
+components/                         # composants de l'interface
 
 lib/
 ├── backend.ts                      # client de l'API du backend FastAPI (tenders, recherches, propositions)

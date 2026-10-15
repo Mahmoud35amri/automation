@@ -70,7 +70,7 @@ pip install -r requirements.txt
 alembic upgrade head
 uvicorn app.main:app --port 8000
 
-# 2. agent (olivesoft-rfp/README.md for its .env.local)
+# 2. agent + dashboard (olivesoft-rfp/README.md for its .env.local) -> http://localhost:3000
 cd olivesoft-rfp && npm install && docker compose up -d qdrant && npm run dev
 
 # 3. feed tenders
