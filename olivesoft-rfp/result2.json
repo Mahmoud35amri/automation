@@ -1,0 +1,35 @@
+{
+  "reference": "RFP-2026-021",
+  "title": "REQUEST FOR PROPOSAL",
+  "client_name": "Maison Corymbe",
+  "client_sector": "Retail / Fashion E-commerce",
+  "deadline": "2026-12-20",
+  "budget": null,
+  "currency": null,
+  "project_type": [
+    "crm_implementation",
+    "bi_reporting",
+    "data_integration"
+  ],
+  "required_technologies": [
+    "Salesforce",
+    "Power BI",
+    "REST API"
+  ],
+  "required_roles": [
+    { "title": "Project Manager", "count": 1, "min_experience_years": null, "required_certifications": [] },
+    { "title": "Salesforce Developer", "count": 1, "min_experience_years": 3, "required_certifications": [] },
+    { "title": "BI Analyst", "count": 1, "min_experience_years": null, "required_certifications": [] },
+    { "title": "UX Designer", "count": 1, "min_experience_years": null, "required_certifications": [] }
+  ],
+  "requirements": [
+    { "id": "R1", "text": "Implementation of a Salesforce CRM unifying customer data across retail and e-commerce channels.", "category": "technical", "mandatory": true, "min_experience_years": null },
+    { "id": "R2", "text": "Integration with existing ERP and e-commerce platform via REST APIs.", "category": "technical", "mandatory": true, "min_experience_years": null },
+    { "id": "R3", "text": "Development of Power BI dashboards for sales and customer engagement KPIs.", "category": "technical", "mandatory": true, "min_experience_years": null },
+    { "id": "R4", "text": "Redesign of the customer-facing loyalty portal UI/UX.", "category": "technical", "mandatory": true, "min_experience_years": null },
+    { "id": "R5", "text": "Bidders must provide at least 2 similar CRM or data integration projects delivered in the retail or fashion sector.", "category": "references", "mandatory": true, "min_experience_years": null }
+  ],
+  "language": "en",
+  "missing_fields": ["budget", "currency"],
+  "confidence": 0.91
+}
