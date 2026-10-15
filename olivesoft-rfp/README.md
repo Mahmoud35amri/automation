@@ -60,7 +60,7 @@ Un seul appel suffit pour enchaîner les étapes 1 à 3 : `POST /api/tenders/{id
 ```
 
 **Séparation des responsabilités, par choix délibéré :**
-- **PostgreSQL** stocke tout le relationnel : `tenders`, `prospects`, `proposals` — avec clés étrangères, statuts (`enum`), intégrité référentielle
+- **Le backend FastAPI** (racine du dépôt) stocke tout le relationnel : `tenders`, `prospect_research`, `proposals` — ce module n'a plus de base à lui, il lit et écrit via l'API du backend (`lib/backend.ts`). Le backend appelle ce module via ses webhooks `trigger-research` / `trigger-proposal`
 - **Qdrant** stocke uniquement les vecteurs d'embedding du portfolio OliveSoft (projets réels + profils-types), isolé du relationnel car Qdrant ne gère ni jointures ni contraintes
 - La **recherche prospect** est un pipeline fixe (Tavily × 2 en parallèle → Gemini), pas une boucle agentique autonome — choix assumé pour la fiabilité et le debug en 48h
 - La **génération de proposition** reçoit les scores RAG et compare elle-même les rôles requis à l'équipe proposée, avant de produire un JSON structuré (jamais du texte libre à re-parser)
@@ -70,7 +70,7 @@ Un seul appel suffit pour enchaîner les étapes 1 à 3 : `POST /api/tenders/{id
 | Composant | Choix | Pourquoi |
 |---|---|---|
 | Framework | Next.js (App Router, API routes) | Cohérent avec le reste de la stack de l'équipe |
-| Base relationnelle | PostgreSQL 16 (Docker, pas Supabase) | Contrainte imposée : jamais de Supabase |
+| Base relationnelle | Backend FastAPI + PostgreSQL (racine du dépôt) | Source unique de vérité pour tous les modules |
 | Base vectorielle | Qdrant (Docker) | Isolation propre entre relationnel et vectoriel |
 | Recherche web | Tavily API | Retourne du texte déjà nettoyé, pensé pour être consommé par un LLM |
 | LLM | Gemini 3.5 Flash Lite (`@google/genai`) | Gratuit (tier gratuit Google AI Studio), sortie JSON contrainte via `responseSchema` |
@@ -79,17 +79,11 @@ Un seul appel suffit pour enchaîner les étapes 1 à 3 : `POST /api/tenders/{id
 
 ## Installation
 
+Le backend FastAPI (racine du dépôt) doit tourner sur `BACKEND_URL` — voir le README racine.
+
 ```bash
 npm install
-docker compose up -d
-```
-
-Attendez que les deux conteneurs (`db`, `qdrant`) soient prêts, puis appliquez les migrations :
-
-```bash
-docker compose exec -T db psql -U olivesoft -d rfp_system < migrations/001_init.sql
-docker compose exec -T db psql -U olivesoft -d rfp_system < migrations/002_create_prospects.sql
-docker compose exec -T db psql -U olivesoft -d rfp_system < migrations/003_create_proposals.sql
+docker compose up -d qdrant
 ```
 
 Indexez le portfolio OliveSoft dans Qdrant (5 projets réels + 5 profils-types, extraits de olivesoft.fr) :
@@ -109,14 +103,16 @@ npm run dev
 Créez un fichier `.env.local` à la racine du projet (jamais commité — voir `.env.example` pour le modèle sans valeurs) :
 
 ```
-DATABASE_URL=postgresql://olivesoft:olivesoft@localhost:5433/rfp_system
+BACKEND_URL=http://localhost:8000/api/v1
+PROPOSALS_DIR=proposals
 GEMINI_API_KEY=
 TAVILY_API_KEY=
 ```
 
 | Variable | Description | Où l'obtenir |
 |---|---|---|
-| `DATABASE_URL` | Chaîne de connexion PostgreSQL (le port `5433` correspond au mapping défini dans `docker-compose.yml`, car `5432` est souvent déjà pris localement) | Fixée par `docker-compose.yml`, aucune action requise |
+| `BACKEND_URL` | URL de l'API du backend FastAPI (défaut : `http://localhost:8000/api/v1`) | URL où tourne le backend |
+| `PROPOSALS_DIR` | Dossier où les `.pptx` générés sont écrits (défaut : `proposals/`). Le backend doit pouvoir le lire : il sert le fichier via `GET /proposals/{id}/download` | Aucune action requise en local |
 | `GEMINI_API_KEY` | Clé pour les appels de synthèse et d'embedding | Gratuit sur [aistudio.google.com/apikey](https://aistudio.google.com/apikey), aucune carte bancaire requise |
 | `TAVILY_API_KEY` | Clé pour la recherche web | Gratuit sur [tavily.com](https://tavily.com), 1000 requêtes/mois, aucune carte bancaire requise |
 
@@ -126,8 +122,6 @@ TAVILY_API_KEY=
 app/
 └── api/
     ├── tenders/
-    │   ├── ingest/
-    │   │   └── route.ts            # reçoit un tender depuis l'agent de détection
     │   └── [id]/
     │       └── process/
     │           └── route.ts        # orchestration : prospect + génération en un appel
@@ -135,28 +129,21 @@ app/
     │   └── research/
     │       └── route.ts            # Tavily + Gemini → profil prospect
     ├── proposals/
-    │   ├── generate/
-    │   │   └── route.ts            # RAG + Gemini → proposition structurée (JSON)
-    │   └── [id]/
-    │       └── export/
-    │           └── route.ts        # proposition → fichier .pptx
+    │   └── generate/
+    │       └── route.ts            # RAG + Gemini → proposition structurée (JSON) + .pptx
     └── rag/
         └── search/
             └── route.ts            # recherche vectorielle exposée en API
 
 lib/
-├── db.ts                           # pool de connexion PostgreSQL
+├── backend.ts                      # client de l'API du backend FastAPI (tenders, recherches, propositions)
+├── pptx.ts                         # proposition → fichier .pptx
 ├── qdrant.ts                       # client Qdrant
 ├── rag.ts                          # logique d'embedding + recherche, partagée entre routes
-└── ingestTender.ts                 # mapping JSON brut → schéma tenders
+└── ingestTender.ts                 # titre/description reconstruits depuis l'extraction NLP du tender
 
 scripts/
 └── ingest-knowledge.ts             # indexe le portfolio OliveSoft (projets + CV) dans Qdrant
-
-migrations/
-├── 001_init.sql                    # table tenders
-├── 002_create_prospects.sql        # table prospects
-└── 003_create_proposals.sql        # table proposals
 
 docker-compose.yml                  # services PostgreSQL + Qdrant
 .env.example                        # modèle des variables d'environnement (sans valeurs)
@@ -165,32 +152,27 @@ docker-compose.yml                  # services PostgreSQL + Qdrant
 
 ## Endpoints API
 
-### `POST /api/tenders/ingest`
-Reçoit un tender au format JSON brut d'un agent de détection (voir [contrat d'intégration](#contrat-dintégration-pour-léquipe-détection)), le transforme et l'insère en base.
-
-**Réponse** : la ligne `tenders` créée, avec `status: "detected"` ou `"incomplete"`.
-
 ### `POST /api/prospects/research`
 ```json
-{ "tender_id": "uuid" }
+{ "tender_id": 1 }
 ```
-Recherche le client (secteur, budget estimé, partenaires) via Tavily + Gemini. Met à jour `tenders.status` à `"researching"`. **Trace son input (tender) et son output (profil prospect) dans les logs serveur** à chaque exécution.
+Cible du webhook `N8N_RESEARCH_WEBHOOK_URL` du backend (`POST /api/v1/tenders/{id}/trigger-research`). Recherche le client (secteur, budget estimé, partenaires) via Tavily + Gemini et l'enregistre via `POST /api/v1/tenders/{id}/research` (le tender passe à `RESEARCHED`). **Trace son input (tender) et son output (profil prospect) dans les logs serveur** à chaque exécution.
 
-**Réponse** : la ligne `prospects` créée (`sector`, `estimated_revenue`, `key_partners`).
+**Réponse** : la recherche enregistrée par le backend (`sector`, `estimated_revenue`, `key_partners`).
 
 ### `POST /api/proposals/generate`
 ```json
-{ "tender_id": "uuid" }
+{ "tender_id": 1 }
 ```
-Récupère le prospect existant, interroge le RAG (3 projets + 3 profils les plus pertinents), génère une proposition structurée. Met à jour `tenders.status` à `"proposal_ready"`.
+Cible du webhook `N8N_PROPOSAL_WEBHOOK_URL` du backend (`POST /api/v1/tenders/{id}/trigger-proposal`). Récupère le prospect depuis le backend, interroge le RAG (3 projets + 3 profils les plus pertinents), génère une proposition structurée et l'enregistre via `POST /api/v1/tenders/{id}/generate-proposal` (le tender passe à `PROPOSAL_READY`). Le `.pptx` est écrit dans `PROPOSALS_DIR` et son chemin enregistré dans `file_path_pptx`.
 
-**Réponse** : la ligne `proposals` créée, `content` étant un JSON structuré (sections + items avec scores de pertinence).
+**Réponse** : la proposition enregistrée par le backend, `content_json` étant un JSON structuré (sections + items avec scores de pertinence).
 
-### `GET /api/proposals/{id}/export`
-Génère et retourne un fichier `.pptx` téléchargeable à partir de la proposition stockée.
+### `GET /api/v1/proposals/{id}/download` (backend)
+Retourne le fichier `.pptx` de la proposition.
 
 ### `POST /api/tenders/{id}/process`
-Enchaîne `prospects/research` puis `proposals/generate` en un seul appel. Renvoie `prospect_id`, `proposal_id`, `proposal_status`, `export_url`.
+Enchaîne `prospects/research` puis `proposals/generate` en un seul appel. Renvoie `prospect_id`, `proposal_id`, `proposal_version`, `export_url`.
 
 ### `POST /api/rag/search`
 ```json
@@ -233,7 +215,7 @@ Deux mécanismes protègent le pipeline contre les pannes transitoires et les so
 
 ## Contrat d'intégration pour l'équipe détection
 
-`POST /api/tenders/ingest` accepte n'importe quel JSON contenant au minimum :
+Les tenders sont créés dans le backend : `POST /api/v1/tenders/from-nlp` (sortie de `nlp/main.py --backend`) ou `POST /api/v1/tenders/` (scraper `--backend`). L'extraction NLP est conservée dans `nlp_metadata`, qui contient au minimum :
 
 ```json
 {
@@ -248,20 +230,20 @@ Deux mécanismes protègent le pipeline contre les pannes transitoires et les so
 }
 ```
 
-Le JSON complet est conservé tel quel dans `tenders.raw_payload` (rien n'est perdu, même les champs non utilisés aujourd'hui). Le `status` du tender est calculé par **nos** critères (longueur du contenu reconstruit), indépendamment du `missing_fields`/`confidence` que l'agent de détection peut lui-même remonter.
+Le titre, la description, le secteur et les rôles utilisés par ce module en sont reconstruits (`lib/backend.ts`, `lib/ingestTender.ts`).
 
 ## Tests manuels
 
 ```bash
-# 1. Ingérer un tender (JSON de test dans result.json, result2.json, etc.)
-curl -X POST http://localhost:3000/api/tenders/ingest \
+# 1. Créer un tender dans le backend (JSON de test dans result.json, result2.json, etc.)
+curl -X POST http://localhost:8000/api/v1/tenders/from-nlp \
   -H "Content-Type: application/json" -d @result.json
 
-# 2. Lancer le pipeline complet
+# 2. Lancer le pipeline complet (ou via le backend : POST /api/v1/tenders/{id}/trigger-research puis trigger-proposal)
 curl -X POST http://localhost:3000/api/tenders/{tender_id}/process
 
 # 3. Télécharger la proposition
-curl http://localhost:3000/api/proposals/{proposal_id}/export -o proposition.pptx
+curl http://localhost:8000/api/v1/proposals/{proposal_id}/download -o proposition.pptx
 ```
 
 ## Tenders réels testés

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-import pool from "@/lib/db";
+import { backend, getTender } from "@/lib/backend";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -28,18 +28,12 @@ async function tavilySearch(query: string): Promise<string> {
 export async function POST(req: NextRequest) {
   const { tender_id } = await req.json();
 
-  const { rows } = await pool.query(
-    "select title, raw_description, sector from tenders where id = $1",
-    [tender_id]
-  );
-  if (!rows.length) {
+  const tender = await getTender(tender_id);
+  if (!tender) {
     return NextResponse.json({ error: "tender not found" }, { status: 404 });
   }
-  const tender = rows[0];
 
-  await pool.query("update tenders set status = 'researching', updated_at = now() where id = $1", [
-    tender_id,
-  ]);
+  await backend(`/tenders/${tender_id}`, "PATCH", { status: "RESEARCHING" });
 
   let generalCtx: string, marketCtx: string;
   try {
@@ -120,12 +114,13 @@ Synthétise le profil prospect structuré.`,
     );
   }
 
-  const inserted = await pool.query(
-    `insert into prospects (tender_id, sector, estimated_revenue, key_partners)
-     values ($1, $2, $3, $4)
-     returning *`,
-    [tender_id, profile.sector, profile.estimated_revenue, JSON.stringify(profile.key_partners)]
-  );
+  // Le backend passe le tender en RESEARCHED à la réception.
+  const research = await backend(`/tenders/${tender_id}/research`, "POST", {
+    sector: profile.sector,
+    estimated_revenue: `${profile.estimated_revenue} TND`,
+    key_partners: profile.key_partners,
+    raw_research_notes: profile.estimation_basis,
+  });
 
-  return NextResponse.json(inserted.rows[0]);
+  return NextResponse.json(research);
 }

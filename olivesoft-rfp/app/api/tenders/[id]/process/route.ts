@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/db";
+import { BACKEND_URL, getTender } from "@/lib/backend";
 
 async function callInternal(path: string, body: object) {
   const res = await fetch(`http://localhost:3000${path}`, {
@@ -17,14 +17,13 @@ async function callInternal(path: string, body: object) {
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id: tender_id } = await params;
 
-  const tenderCheck = await pool.query("select id from tenders where id = $1", [tender_id]);
-  if (!tenderCheck.rows.length) {
+  if (!(await getTender(tender_id))) {
     return NextResponse.json({ error: "tender not found" }, { status: 404 });
   }
 
   const steps: {
-    prospect?: { id: string };
-    proposal?: { id: string; status: string };
+    prospect?: { id: number };
+    proposal?: { id: number; version: number };
   } = {};
 
   try {
@@ -49,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     tender_id,
     prospect_id: steps.prospect!.id,
     proposal_id: steps.proposal!.id,
-    proposal_status: steps.proposal!.status,
-    export_url: `/api/proposals/${steps.proposal!.id}/export`,
+    proposal_version: steps.proposal!.version,
+    export_url: `${BACKEND_URL}/proposals/${steps.proposal!.id}/download`,
   });
 }

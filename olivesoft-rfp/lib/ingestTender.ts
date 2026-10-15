@@ -4,7 +4,7 @@ interface TenderRequirement {
 }
 
 interface TenderRole {
-  count: number;
+  count: number | null;
   title: string;
   min_experience_years?: number;
 }
@@ -32,7 +32,7 @@ export function buildDescription(payload: TenderPayload): string {
     .map((r: TenderRequirement) => `- ${r.text}${r.mandatory ? " (obligatoire)" : " (optionnel)"}`)
     .join("\n");
   const roles = (payload.required_roles ?? [])
-    .map((r: TenderRole) => `${r.count}x ${r.title}${r.min_experience_years ? ` (${r.min_experience_years} ans min.)` : ""}`)
+    .map((r: TenderRole) => `${r.count ?? "?"}x ${r.title}${r.min_experience_years ? ` (${r.min_experience_years} ans min.)` : ""}`)
     .join(", ");
   const tech = (payload.required_technologies ?? []).join(", ");
 

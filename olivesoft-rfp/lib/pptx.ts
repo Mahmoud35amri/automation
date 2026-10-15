@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { mkdir, writeFile } from "fs/promises";
+import path from "path";
 import pptxgen from "pptxgenjs";
-import pool from "@/lib/db";
 
 const NAVY = "1C1F27";
 const AMBER = "D9A548";
@@ -21,25 +21,18 @@ function addHeaderFooter(slide: Slide, pptx: Pptx, sectionLabel: string, pageNum
   });
 }
 
-export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export type ProposalSection = {
+  number: number;
+  title: string;
+  body?: string;
+  items?: { heading: string; text: string }[];
+};
 
-  const { rows } = await pool.query(
-    `select p.content, t.title as tender_title
-     from proposals p join tenders t on t.id = p.tender_id
-     where p.id = $1`,
-    [id]
-  );
+// Le fichier doit être lisible par le backend : il le sert via GET /proposals/{id}/download.
+const PROPOSALS_DIR = path.resolve(process.env.PROPOSALS_DIR ?? "proposals");
 
-  if (!rows.length) {
-    return NextResponse.json({ error: "proposal not found" }, { status: 404 });
-  }
-
-  const { content, tender_title } = rows[0];
-  const { sections } = JSON.parse(content) as {
-    sections: { number: number; title: string; body?: string; items?: { heading: string; text: string }[] }[];
-  };
-
+// Écrit la proposition en .pptx et renvoie son chemin absolu (à enregistrer dans proposals.file_path_pptx).
+export async function saveProposalPptx(id: number, tender_title: string, sections: ProposalSection[]): Promise<string> {
   const pptx = new pptxgen();
   pptx.defineLayout({ name: "OLIVESOFT", width: 10, height: 5.63 });
   pptx.layout = "OLIVESOFT";
@@ -83,10 +76,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const buffer = (await pptx.write({ outputType: "nodebuffer" })) as Buffer;
 
-  return new NextResponse(new Uint8Array(buffer), {
-    headers: {
-      "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-      "Content-Disposition": `attachment; filename="proposition-${id}.pptx"`,
-    },
-  });
+  await mkdir(PROPOSALS_DIR, { recursive: true });
+  const file = path.join(PROPOSALS_DIR, `proposition-${id}.pptx`);
+  await writeFile(file, buffer);
+  return file;
 }

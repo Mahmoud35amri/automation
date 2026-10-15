@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-import pool from "@/lib/db";
+import { backend, getTender } from "@/lib/backend";
+import { saveProposalPptx } from "@/lib/pptx";
 import { searchKnowledge } from "@/lib/rag";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -12,21 +13,12 @@ const RELEVANCE_THRESHOLD = 0.55;
 export async function POST(req: NextRequest) {
   const { tender_id } = await req.json();
 
-  const tenderRes = await pool.query(
-    "select title, raw_description, sector, raw_payload from tenders where id = $1",
-    [tender_id]
-  );
-  if (!tenderRes.rows.length) {
+  const tender = await getTender(tender_id);
+  if (!tender) {
     return NextResponse.json({ error: "tender not found" }, { status: 404 });
   }
-  const tender = tenderRes.rows[0];
-  const requiredRoles: { title: string; count: number }[] = tender.raw_payload?.required_roles ?? [];
-
-  const prospectRes = await pool.query(
-    "select id, sector, estimated_revenue, key_partners from prospects where tender_id = $1 order by created_at desc limit 1",
-    [tender_id]
-  );
-  const prospect = prospectRes.rows[0] ?? null;
+  const requiredRoles = tender.required_roles;
+  const prospect = tender.research;
 
   const tenderQuery = `${tender.title}\n${tender.raw_description}`;
 
@@ -56,7 +48,7 @@ export async function POST(req: NextRequest) {
     .join("\n");
 
   const requiredRolesText = requiredRoles.length
-    ? requiredRoles.map((r) => `- ${r.count}x ${r.title}`).join("\n")
+    ? requiredRoles.map((r) => `- ${r.count ?? "?"}x ${r.title}`).join("\n")
     : "Aucun rôle spécifique listé dans le tender.";
 
   let llmOutput: {
@@ -85,7 +77,7 @@ ${requiredRolesText}
 
 ${
   prospect
-    ? `Profil du prospect : secteur ${prospect.sector}, budget estimé ${prospect.estimated_revenue} TND, partenaires : ${JSON.stringify(prospect.key_partners)}`
+    ? `Profil du prospect : secteur ${prospect.sector}, budget estimé ${prospect.estimated_revenue}, partenaires : ${JSON.stringify(prospect.key_partners)}`
     : "Aucun profil prospect disponible — ne fais aucune supposition sur le budget ou les partenaires."
 }
 
@@ -165,19 +157,13 @@ Réponds avec :
     ],
   };
 
-  const content = JSON.stringify(structuredProposal);
+  // Le backend crée la version suivante (v1, v2...) et passe le tender en PROPOSAL_READY.
+  const proposal = await backend<{ id: number }>(`/tenders/${tender_id}/generate-proposal`, "POST", {
+    content_json: structuredProposal,
+  });
 
-  const inserted = await pool.query(
-    `insert into proposals (tender_id, prospect_id, content, status)
-     values ($1, $2, $3, 'draft')
-     returning *`,
-    [tender_id, prospect?.id ?? null, content]
-  );
+  const file_path_pptx = await saveProposalPptx(proposal.id, tender.title, structuredProposal.sections);
+  const saved = await backend(`/proposals/${proposal.id}`, "PATCH", { file_path_pptx });
 
-  await pool.query(
-    "update tenders set status = 'proposal_ready', updated_at = now() where id = $1",
-    [tender_id]
-  );
-
-  return NextResponse.json(inserted.rows[0]);
+  return NextResponse.json(saved);
 }
