@@ -1,0 +1,34 @@
+[
+  {
+    "cv_id": "CV001",
+    "name": "Candidate 1",
+    "skills": ["AWS", "Docker", "Kubernetes", "CI/CD"],
+    "roles": ["DevOps Engineer"],
+    "experience_years": 7,
+    "certifications": ["AWS Certified Solutions Architect"]
+  },
+  {
+    "cv_id": "CV002",
+    "name": "Candidate 2",
+    "skills": ["Azure", "Docker", "Kubernetes", "Cloud Architecture"],
+    "roles": ["Cloud Architect"],
+    "experience_years": 8,
+    "certifications": ["Microsoft Azure Solutions Architect"]
+  },
+  {
+    "cv_id": "CV003",
+    "name": "Candidate 3",
+    "skills": ["Java", "Spring Boot", "Microservices", "AWS"],
+    "roles": ["Backend Developer"],
+    "experience_years": 6,
+    "certifications": []
+  },
+  {
+    "cv_id": "CV004",
+    "name": "Candidate 4",
+    "skills": ["Project Management", "Agile", "Scrum", "Cloud"],
+    "roles": ["Project Manager"],
+    "experience_years": 9,
+    "certifications": ["PMP"]
+  }
+]

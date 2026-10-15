@@ -1,0 +1,110 @@
+[
+  {
+    "id": "project_001",
+    "title": "Bank Cloud Transformation",
+    "description": "Migration of a monolithic banking application to a microservices architecture and deployment on cloud infrastructure.",
+    "sector": "Finance",
+    "project_type": [
+      "cloud_migration",
+      "digital_transformation"
+    ],
+    "technologies": [
+      "AWS",
+      "Docker",
+      "Kubernetes"
+    ],
+    "skills": [
+      "Microservices",
+      "CI/CD",
+      "Cloud Infrastructure",
+      "DevOps"
+    ],
+    "year": 2024
+  },
+  {
+    "id": "project_002",
+    "title": "Healthcare Cloud Platform",
+    "description": "Development of a scalable healthcare platform using cloud infrastructure and containerized services.",
+    "sector": "Healthcare",
+    "project_type": [
+      "cloud_infrastructure"
+    ],
+    "technologies": [
+      "Azure",
+      "Docker",
+      "Kubernetes"
+    ],
+    "skills": [
+      "Cloud Infrastructure",
+      "Containerization",
+      "DevOps"
+    ],
+    "year": 2025
+  },
+  {
+    "id": "project_003",
+    "title": "E-Commerce Microservices Platform",
+    "description": "Transformation of a monolithic e-commerce platform into a distributed microservices architecture with automated deployment.",
+    "sector": "E-Commerce",
+    "project_type": [
+      "digital_transformation",
+      "devops_automation"
+    ],
+    "technologies": [
+      "AWS",
+      "Docker",
+      "Kubernetes",
+      "GraphQL"
+    ],
+    "skills": [
+      "Microservices",
+      "CI/CD",
+      "API Development",
+      "DevOps"
+    ],
+    "year": 2023
+  },
+  {
+    "id": "project_004",
+    "title": "Financial Data Integration Platform",
+    "description": "Development of a financial data platform integrating secure APIs and cloud-based infrastructure for financial institutions.",
+    "sector": "Finance",
+    "project_type": [
+      "digital_transformation",
+      "cloud_infrastructure"
+    ],
+    "technologies": [
+      "Azure",
+      "GraphQL",
+      "Docker"
+    ],
+    "skills": [
+      "API Development",
+      "Cloud Infrastructure",
+      "Security",
+      "Data Integration"
+    ],
+    "year": 2022
+  },
+  {
+    "id": "project_005",
+    "title": "Retail DevOps Automation",
+    "description": "Implementation of automated CI/CD pipelines, container orchestration and monitoring for a large retail platform.",
+    "sector": "Retail",
+    "project_type": [
+      "devops_automation"
+    ],
+    "technologies": [
+      "AWS",
+      "Docker",
+      "Kubernetes"
+    ],
+    "skills": [
+      "CI/CD",
+      "DevOps",
+      "Monitoring",
+      "Cloud Infrastructure"
+    ],
+    "year": 2024
+  }
+]
