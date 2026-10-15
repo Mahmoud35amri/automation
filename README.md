@@ -47,3 +47,41 @@ The system manages tenders through a structured status workflow:
 (n8n Webhook)
 ▼
 [ PROPOSAL_READY ] ──(Human Edit)──> [ DOWNLOAD PPTX/PDF ]
+
+
+---
+
+## 🔗 Linked components
+
+Every module talks to this backend over HTTP; the backend is the single database.
+
+| Folder | Module | Link to the backend |
+|---|---|---|
+| `scraper/` | Tender detection (HAICOP + appeloffres.com) | `--backend URL` → `POST /tenders/` (deduplicated by `source_url`) |
+| `nlp/` | RFP PDF → structured JSON (Groq) | `--backend URL` → `POST /tenders/from-nlp` |
+| `rag/` | Qdrant + rule-based matching | `src/link_backend.py <tender_id>` → reads `nlp_metadata`, writes `POST /assets/` + `POST /tenders/{id}/matches` |
+| `olivesoft-rfp/` | Prospect research + proposal generation (Next.js) | target of `N8N_RESEARCH_WEBHOOK_URL` / `N8N_PROPOSAL_WEBHOOK_URL`, writes `POST /tenders/{id}/research`, `POST /tenders/{id}/generate-proposal` |
+
+### Run it
+
+```bash
+# 1. backend (copy .env.example to .env and fill the database settings)
+pip install -r requirements.txt
+alembic upgrade head
+uvicorn app.main:app --port 8000
+
+# 2. agent (olivesoft-rfp/README.md for its .env.local)
+cd olivesoft-rfp && npm install && docker compose up -d qdrant && npm run dev
+
+# 3. feed tenders
+python scraper/cstam_pipeline.py --backend http://localhost:8000/api/v1
+python nlp/main.py nlp/fixtures/sample_rfp_en.pdf --backend http://localhost:8000/api/v1
+
+# 4. RAG matches for a tender that has an NLP extraction (index once with rag/main.py)
+cd rag/src && python link_backend.py <tender_id>
+
+# 5. research + proposal through the backend
+curl -X POST http://localhost:8000/api/v1/tenders/<tender_id>/trigger-research
+curl -X POST http://localhost:8000/api/v1/tenders/<tender_id>/trigger-proposal
+curl http://localhost:8000/api/v1/proposals/<proposal_id>/download -o proposal.pptx
+```
