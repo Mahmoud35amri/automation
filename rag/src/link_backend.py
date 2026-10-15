@@ -56,6 +56,10 @@ def asset_id(api: str, known: dict, rag_id: str, body: dict) -> int:
     return known[rag_id]
 
 
+def words(items: list) -> str:
+    return ", ".join(items) or "none"
+
+
 def run_rag(rfp: dict, candidates: list[dict]):
     client = QdrantClient(path=str(BASE_DIR / "qdrant_storage"))
     try:
@@ -79,9 +83,9 @@ def project_matches(api, known, rfp, results, references) -> list[dict]:
         project = result.payload
         m = match_project(rfp, project)
         reason = (
-            f"Sector match: {m['sector_match']}. "
-            f"Technologies matched: {m['technology_match']['matched']}, missing: {m['technology_match']['missing']}. "
-            f"Project types matched: {m['project_type_match']['matched']}, missing: {m['project_type_match']['missing']}."
+            f"Sector match: {'yes' if m['sector_match'] else 'no'}. "
+            f"Technologies matched: {words(m['technology_match']['matched'])}; missing: {words(m['technology_match']['missing'])}. "
+            f"Project types matched: {words(m['project_type_match']['matched'])}; missing: {words(m['project_type_match']['missing'])}."
         )
         if project.get("id") in references:
             reason += f" Valid reference ({project.get('sector')}, {project.get('year')})."
@@ -105,6 +109,8 @@ def candidate_matches(api, known, candidates, matching_candidates) -> list[dict]
     for c in matching_candidates:
         cv = cvs[c["cv_id"]]
         required = len(c["skills"]) + len(c["missing_skills"])
+        required_years = c["required_experience_years"]
+        experience = f"{c['experience_years']} years" + ("" if required_years is None else f" (required: {required_years})")
         matches.append({
             "asset_id": asset_id(api, known, cv["cv_id"], {
                 "title": f"{cv['name']} ({', '.join(cv.get('roles', []))})",
@@ -115,9 +121,9 @@ def candidate_matches(api, known, candidates, matching_candidates) -> list[dict]
             # share of the required technologies this candidate covers (role + experience already satisfied)
             "relevance_score": len(c["skills"]) / required if required else 1.0,
             "match_reason": (
-                f"Role {c['role']}: {c['experience_years']} years (required: {c['required_experience_years']}). "
-                f"Technologies matched: {c['skills']}, missing: {c['missing_skills']}. "
-                f"Certifications: {c['certifications']}."
+                f"Role {c['role']}: {experience}. "
+                f"Technologies matched: {words(c['skills'])}; missing: {words(c['missing_skills'])}. "
+                f"Certifications: {words(c['certifications'])}."
             ),
         })
     return matches
